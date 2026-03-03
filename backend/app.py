@@ -3,6 +3,7 @@ import os
 import json
 from pathlib import Path
 from io import BytesIO
+from contextlib import asynccontextmanager
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
@@ -26,8 +27,21 @@ FRONTEND_DIR = BASE_DIR.parent / "frontend" / "dist"
 with open(CLASSES_PATH, "r") as f:
     class_names = json.load(f)
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Load TF model at startup, cleanup at shutdown."""
+    import tensorflow as tf
+    print("Loading TensorFlow model...")
+    app.state.model = tf.keras.models.load_model(str(MODEL_TF_PATH))
+    print("Model loaded successfully.")
+    yield
+    # Shutdown: release model
+    del app.state.model
+
+
 # FastAPI app
-app = FastAPI(title="Food Classifier API")
+app = FastAPI(title="Food Classifier API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -39,15 +53,6 @@ app.add_middleware(
 
 # Serve TF.js model and asset files
 app.mount("/artifacts", StaticFiles(directory=str(ASSETS_DIR)), name="artifacts")
-
-
-@app.on_event("startup")
-async def load_model():
-    """Load TF model lazily at startup, not at import time."""
-    import tensorflow as tf
-    print("Loading TensorFlow model...")
-    app.state.model = tf.keras.models.load_model(str(MODEL_TF_PATH))
-    print("Model loaded successfully.")
 
 
 @app.post("/api/predict")
