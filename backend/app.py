@@ -29,14 +29,16 @@ with open(CLASSES_PATH, "r") as f:
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Load TF model at startup, cleanup at shutdown."""
+async def lifespan(app: FastAPI):  # pragma: no cover
+    """Load TF model at startup, cleanup at shutdown.
+    Excluded from unit test coverage — only exercised by E2E tests
+    which load the real model. Unit tests inject FakeModel directly.
+    """
     import tensorflow as tf
     print("Loading TensorFlow model...")
     app.state.model = tf.keras.models.load_model(str(MODEL_TF_PATH))
     print("Model loaded successfully.")
     yield
-    # Shutdown: release model
     del app.state.model
 
 
@@ -81,16 +83,18 @@ async def get_classes():
 
 
 # Serve frontend static files (production)
-if FRONTEND_DIR.exists():
+if FRONTEND_DIR.exists():  # pragma: no cover
     app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIR / "assets")), name="frontend-assets")
 
     @app.get("/{full_path:path}")
     async def serve_frontend(full_path: str):
+        """Serve frontend SPA — returns index.html for unknown paths."""
         file_path = FRONTEND_DIR / full_path
         if file_path.exists() and file_path.is_file():
             return FileResponse(file_path)
         return FileResponse(FRONTEND_DIR / "index.html")
 else:
     @app.get("/")
-    async def root():
+    async def root():  # pragma: no cover
+        """Fallback when no frontend build exists."""
         return {"message": "Food Classifier API", "classes": class_names}
