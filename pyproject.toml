@@ -22,6 +22,7 @@ dev = [
   "pytest",
   "httpx",
   "pytest-asyncio",
+  "pytest-cov",
 ]
 
 [tool.pytest.ini_options]
@@ -31,3 +32,21 @@ markers = [
   "e2e: End-to-end integration tests requiring real TF model (slow, excluded by default)",
 ]
 addopts = "-m 'not e2e'"
+
+[tool.coverage.run]
+source = ["backend"]
+branch = true
+omit = [
+  "backend/test_*.py",
+  "backend/__pycache__/*",
+]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 70
+precision = 1
+exclude_lines = [
+  "pragma: no cover",
+  "if __name__ == .__main__.",
+  "if TYPE_CHECKING:",
+]
