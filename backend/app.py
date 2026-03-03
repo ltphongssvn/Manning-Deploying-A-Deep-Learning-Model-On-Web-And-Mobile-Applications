@@ -1,5 +1,6 @@
 import os
 import json
+import time
 import numpy as np
 from pathlib import Path
 from io import BytesIO
@@ -10,7 +11,7 @@ import tensorflow as tf
 from PIL import Image
 from fastapi import FastAPI, File, UploadFile
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 import requests as http_requests
 
@@ -19,6 +20,7 @@ BASE_DIR = Path(__file__).resolve().parent
 ASSETS_DIR = BASE_DIR / "assets"
 MODEL_TF_PATH = ASSETS_DIR / "model_tf" / "model_MobileNetV2.keras"
 CLASSES_PATH = ASSETS_DIR / "classes.json"
+FRONTEND_DIR = BASE_DIR.parent / "frontend" / "dist"
 IMG_SIZE = (224, 224)
 
 # Load model and classes
@@ -40,14 +42,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Serve TF.js model files and frontend static files
+# Serve TF.js model and asset files
 app.mount("/artifacts", StaticFiles(directory=str(ASSETS_DIR)), name="artifacts")
-if (BASE_DIR.parent / "frontend" / "build").exists():
-    app.mount("/static", StaticFiles(directory=str(BASE_DIR.parent / "frontend" / "build" / "static")), name="static")
 
 
 def preprocess_image(img: Image.Image) -> np.ndarray:
-    """Preprocess image for MobileNetV2 inference."""
     img = img.convert("RGB").resize(IMG_SIZE)
     img_array = np.array(img, dtype=np.float32)
     img_array = tf.keras.applications.mobilenet_v2.preprocess_input(img_array)
@@ -55,8 +54,6 @@ def preprocess_image(img: Image.Image) -> np.ndarray:
 
 
 def predict(img: Image.Image) -> dict:
-    """Run inference and return predictions."""
-    import time
     processed = preprocess_image(img)
     start = time.time()
     predictions = model.predict(processed, verbose=0)
@@ -73,14 +70,8 @@ def predict(img: Image.Image) -> dict:
     }
 
 
-@app.get("/")
-async def root():
-    return {"message": "Food Classifier API", "classes": class_names}
-
-
 @app.post("/api/predict")
 async def predict_upload(file: UploadFile = File(...)):
-    """Server-side inference from uploaded image."""
     contents = await file.read()
     img = Image.open(BytesIO(contents))
     return JSONResponse(content=predict(img))
@@ -88,7 +79,6 @@ async def predict_upload(file: UploadFile = File(...)):
 
 @app.post("/api/predict_url")
 async def predict_url(payload: dict):
-    """Server-side inference from image URL."""
     url = payload.get("url", "")
     response = http_requests.get(url)
     img = Image.open(BytesIO(response.content))
@@ -98,3 +88,19 @@ async def predict_url(payload: dict):
 @app.get("/api/classes")
 async def get_classes():
     return {"classes": class_names}
+
+
+# Serve frontend static files (production)
+if FRONTEND_DIR.exists():
+    app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIR / "assets")), name="frontend-assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_frontend(full_path: str):
+        file_path = FRONTEND_DIR / full_path
+        if file_path.exists() and file_path.is_file():
+            return FileResponse(file_path)
+        return FileResponse(FRONTEND_DIR / "index.html")
+else:
+    @app.get("/")
+    async def root():
+        return {"message": "Food Classifier API", "classes": class_names}
