@@ -20,7 +20,6 @@ import App from "./App";
 // Mock TensorFlow.js — jsdom has no WebGL
 const mockPredict = vi.fn();
 const mockDispose = vi.fn();
-const mockData = vi.fn();
 const mockLoadGraphModel = vi.fn();
 
 vi.mock("@tensorflow/tfjs", () => ({
@@ -58,7 +57,6 @@ beforeEach(() => {
   });
   mockLoadGraphModel.mockReset();
   mockPredict.mockReset();
-  mockData.mockReset();
   mockDispose.mockReset();
 });
 
@@ -72,6 +70,35 @@ async function renderApp() {
     expect(mockFetch).toHaveBeenCalledWith(
       expect.stringContaining("/api/classes")
     );
+  });
+}
+
+/**
+ * Helper: load the browser model and upload a file so both
+ * server and browser prediction paths are exercisable.
+ */
+async function setupModelAndFile(user: ReturnType<typeof userEvent.setup>) {
+  // Load browser model
+  const mockTensorResult = {
+    data: vi.fn().mockResolvedValue(new Float32Array([0.05, 0.15, 0.80])),
+    dispose: vi.fn(),
+  };
+  const mockModel = { predict: vi.fn().mockReturnValue(mockTensorResult) };
+  mockLoadGraphModel.mockResolvedValueOnce(mockModel);
+
+  await user.click(screen.getByRole("button", { name: /load browser model/i }));
+  await waitFor(() => {
+    expect(
+      screen.getByRole("button", { name: /load browser model/i })
+    ).toHaveTextContent(/ready/i);
+  });
+
+  // Upload file
+  const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+  const testFile = new File(["fake-image"], "test.jpg", { type: "image/jpeg" });
+  await user.upload(fileInput, testFile);
+  await waitFor(() => {
+    expect(screen.getByRole("button", { name: /predict/i })).not.toBeDisabled();
   });
 }
 
@@ -147,10 +174,8 @@ describe("App initial state", () => {
   });
 
   it("uses fallback classes when fetch fails", async () => {
-    // Given: fetch rejects
     mockFetch.mockRejectedValueOnce(new Error("Network error"));
     render(<App />);
-    // Then: app still renders (uses fallback classes)
     await waitFor(() => {
       expect(
         screen.getByRole("heading", { name: /classify food image/i })
@@ -193,7 +218,6 @@ describe("App user interactions", () => {
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     const testFile = new File(["fake-image"], "test.jpg", { type: "image/jpeg" });
     await user.upload(fileInput, testFile);
-    // Then: preview image appears and Predict is enabled
     await waitFor(() => {
       expect(screen.getByAltText("Preview")).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /predict/i })).not.toBeDisabled();
@@ -230,7 +254,6 @@ describe("App user interactions", () => {
 describe("Server prediction", () => {
   it("sends file upload to /api/predict and displays results", async () => {
     const user = userEvent.setup();
-    // Given: mock predict returns results
     mockFetch
       .mockResolvedValueOnce({
         ok: true,
@@ -248,7 +271,6 @@ describe("Server prediction", () => {
         }),
       });
     await renderApp();
-    // When: upload file and click Predict
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     const testFile = new File(["fake-image"], "test.jpg", { type: "image/jpeg" });
     await user.upload(fileInput, testFile);
@@ -256,7 +278,6 @@ describe("Server prediction", () => {
       expect(screen.getByRole("button", { name: /predict/i })).not.toBeDisabled();
     });
     await user.click(screen.getByRole("button", { name: /predict/i }));
-    // Then: results displayed with class names
     await waitFor(() => {
       expect(screen.getByText("falafel")).toBeInTheDocument();
       expect(screen.getByText(/90\.00%/)).toBeInTheDocument();
@@ -265,7 +286,6 @@ describe("Server prediction", () => {
 
   it("sends URL to /api/predict_url and displays results", async () => {
     const user = userEvent.setup();
-    // Given: mock returns prediction results
     mockFetch
       .mockResolvedValueOnce({
         ok: true,
@@ -283,14 +303,12 @@ describe("Server prediction", () => {
         }),
       });
     await renderApp();
-    // When: enter URL and click Predict
     const input = screen.getByPlaceholderText(/enter image url/i);
     await user.type(input, "https://example.com/food.jpg");
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /predict/i })).not.toBeDisabled();
     });
     await user.click(screen.getByRole("button", { name: /predict/i }));
-    // Then: results displayed with class names
     await waitFor(() => {
       expect(screen.getByText("caesar_salad")).toBeInTheDocument();
       expect(screen.getByText(/85\.00%/)).toBeInTheDocument();
@@ -300,7 +318,6 @@ describe("Server prediction", () => {
   it("handles server prediction error gracefully", async () => {
     const user = userEvent.setup();
     const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    // Given: predict fetch rejects
     mockFetch
       .mockResolvedValueOnce({
         ok: true,
@@ -308,7 +325,6 @@ describe("Server prediction", () => {
       })
       .mockRejectedValueOnce(new Error("Server error"));
     await renderApp();
-    // When: upload and predict
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     const testFile = new File(["fake-image"], "test.jpg", { type: "image/jpeg" });
     await user.upload(fileInput, testFile);
@@ -316,7 +332,6 @@ describe("Server prediction", () => {
       expect(screen.getByRole("button", { name: /predict/i })).not.toBeDisabled();
     });
     await user.click(screen.getByRole("button", { name: /predict/i }));
-    // Then: error logged, no crash
     await waitFor(() => {
       expect(consoleSpy).toHaveBeenCalled();
     });
@@ -333,9 +348,7 @@ describe("Browser model loading", () => {
     const mockModel = { predict: mockPredict };
     mockLoadGraphModel.mockResolvedValueOnce(mockModel);
     await renderApp();
-    // When: click Load Browser Model
     await user.click(screen.getByRole("button", { name: /load browser model/i }));
-    // Then: model loaded, status shows Ready
     await waitFor(() => {
       expect(
         screen.getByRole("button", { name: /load browser model/i })
@@ -348,9 +361,7 @@ describe("Browser model loading", () => {
     const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     mockLoadGraphModel.mockRejectedValueOnce(new Error("Load failed"));
     await renderApp();
-    // When: click Load Browser Model (will fail)
     await user.click(screen.getByRole("button", { name: /load browser model/i }));
-    // Then: status shows Failed
     await waitFor(() => {
       expect(
         screen.getByRole("button", { name: /load browser model/i })
@@ -374,12 +385,12 @@ describe("Browser model loading", () => {
 });
 
 // ---------------------------------------------------------------------------
-// ResultTable rendering
+// Browser prediction flow (covers predictBrowser lines 107-137)
 // ---------------------------------------------------------------------------
-describe("ResultTable displays predictions", () => {
-  it("shows class names and probabilities in table", async () => {
+describe("Browser prediction", () => {
+  it("runs browser inference when model loaded and file uploaded", async () => {
     const user = userEvent.setup();
-    // Given: server returns predictions
+    // Given: server predict also returns results
     mockFetch
       .mockResolvedValueOnce({
         ok: true,
@@ -397,7 +408,93 @@ describe("ResultTable displays predictions", () => {
         }),
       });
     await renderApp();
-    // When: upload and predict
+    await setupModelAndFile(user);
+    // When: click Predict (triggers both server + browser)
+    await user.click(screen.getByRole("button", { name: /predict/i }));
+    // Then: client side inference shows results from browser model
+    await waitFor(() => {
+      // Browser model returned [0.05, 0.15, 0.80] → falafel 80%
+      expect(screen.getByText(/80\.00%/)).toBeInTheDocument();
+    });
+  });
+
+  it("handles browser prediction error gracefully", async () => {
+    const user = userEvent.setup();
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    // Given: model predict throws
+    const mockTensorResult = {
+      data: vi.fn().mockRejectedValue(new Error("Inference failed")),
+      dispose: vi.fn(),
+    };
+    const mockModel = { predict: vi.fn().mockReturnValue(mockTensorResult) };
+    mockLoadGraphModel.mockResolvedValueOnce(mockModel);
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ classes: ["apple_pie", "caesar_salad", "falafel"] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          predictions: [
+            { class: "falafel", probability: 0.9 },
+            { class: "caesar_salad", probability: 0.08 },
+            { class: "apple_pie", probability: 0.02 },
+          ],
+          inference_time_ms: 100,
+        }),
+      });
+    await renderApp();
+    // Load model
+    await user.click(screen.getByRole("button", { name: /load browser model/i }));
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /load browser model/i })
+      ).toHaveTextContent(/ready/i);
+    });
+    // Upload file
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const testFile = new File(["fake-image"], "test.jpg", { type: "image/jpeg" });
+    await user.upload(fileInput, testFile);
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /predict/i })).not.toBeDisabled();
+    });
+    // When: click Predict
+    await user.click(screen.getByRole("button", { name: /predict/i }));
+    // Then: error logged, app doesn't crash
+    await waitFor(() => {
+      expect(consoleSpy).toHaveBeenCalledWith(
+        "Browser prediction error:",
+        expect.any(Error)
+      );
+    });
+    consoleSpy.mockRestore();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ResultTable rendering
+// ---------------------------------------------------------------------------
+describe("ResultTable displays predictions", () => {
+  it("shows class names and probabilities in table", async () => {
+    const user = userEvent.setup();
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ classes: ["apple_pie", "caesar_salad", "falafel"] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          predictions: [
+            { class: "falafel", probability: 0.9 },
+            { class: "caesar_salad", probability: 0.08 },
+            { class: "apple_pie", probability: 0.02 },
+          ],
+          inference_time_ms: 100,
+        }),
+      });
+    await renderApp();
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     const testFile = new File(["fake-image"], "test.jpg", { type: "image/jpeg" });
     await user.upload(fileInput, testFile);
@@ -405,7 +502,6 @@ describe("ResultTable displays predictions", () => {
       expect(screen.getByRole("button", { name: /predict/i })).not.toBeDisabled();
     });
     await user.click(screen.getByRole("button", { name: /predict/i }));
-    // Then: class names appear in results
     await waitFor(() => {
       expect(screen.getByText("falafel")).toBeInTheDocument();
       expect(screen.getByText("caesar_salad")).toBeInTheDocument();
