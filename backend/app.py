@@ -23,6 +23,9 @@ MODEL_TF_PATH = ASSETS_DIR / "model_tf" / "model_MobileNetV2.keras"
 CLASSES_PATH = ASSETS_DIR / "classes.json"
 FRONTEND_DIR = BASE_DIR.parent / "frontend" / "dist"
 
+# Constants
+HTTP_HEADERS = {"User-Agent": "FoodClassifier/1.0 (Deep Learning Demo)"}
+
 # Load class names (lightweight, no TF dependency)
 with open(CLASSES_PATH, "r") as f:
     class_names = json.load(f)
@@ -70,8 +73,23 @@ async def predict_upload(file: UploadFile = File(...)):
 async def predict_url(payload: dict):
     """Server-side inference from image URL."""
     url = payload.get("url", "")
-    response = http_requests.get(url)
-    img = Image.open(BytesIO(response.content))
+    if not url:
+        return JSONResponse(status_code=400, content={"error": "No URL provided"})
+    try:
+        response = http_requests.get(url, headers=HTTP_HEADERS, timeout=10)
+        response.raise_for_status()
+    except http_requests.RequestException as e:
+        return JSONResponse(
+            status_code=400,
+            content={"error": f"Failed to fetch image: {str(e)}"},
+        )
+    try:
+        img = Image.open(BytesIO(response.content))
+    except Exception:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "URL did not return a valid image"},
+        )
     result = run_prediction(app.state.model, img, class_names)
     return JSONResponse(content=result)
 
