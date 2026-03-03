@@ -1,0 +1,11 @@
+.venv/
+.venv311/
+.venv_tf/
+frontend/node_modules/
+frontend/dist/
+backend/assets/model_tf/saved_model/
+__pycache__/
+*.pyc
+.git/
+.gitignore
+*.md
