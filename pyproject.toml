@@ -1,3 +1,4 @@
+# pyproject.toml
 [project]
 name = "manning-deploying-a-deep-learning-model-on-web-and-mobile-applications"
 version = "0.1.0"
@@ -14,4 +15,11 @@ dependencies = [
   "numpy",
   "requests",
   "jinja2",
+]
+
+[dependency-groups]
+dev = [
+  "pytest",
+  "httpx",
+  "pytest-asyncio",
 ]
