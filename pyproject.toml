@@ -27,3 +27,7 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["backend"]
 asyncio_mode = "auto"
+markers = [
+  "e2e: End-to-end integration tests requiring real TF model (slow, excluded by default)",
+]
+addopts = "-m 'not e2e'"
