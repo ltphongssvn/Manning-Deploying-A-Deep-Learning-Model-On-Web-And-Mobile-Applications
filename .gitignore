@@ -3,12 +3,8 @@
 __pycache__/
 *.pyc
 
-# Model binaries (too large for Git)
-*.keras
-*.h5
-*.bin
+# Large models we don't need in deployment
 backend/assets/model_tf/
-backend/assets/model_tfjs/
 
 # OS files
 .DS_Store
