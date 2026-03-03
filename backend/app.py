@@ -1,19 +1,19 @@
+# backend/app.py
 import os
 import json
-import time
-import numpy as np
 from pathlib import Path
 from io import BytesIO
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
-import tensorflow as tf
-from PIL import Image
 from fastapi import FastAPI, File, UploadFile
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+from PIL import Image
 import requests as http_requests
+
+from backend.inference import run_prediction, preprocess_image
 
 # Paths
 BASE_DIR = Path(__file__).resolve().parent
@@ -21,13 +21,8 @@ ASSETS_DIR = BASE_DIR / "assets"
 MODEL_TF_PATH = ASSETS_DIR / "model_tf" / "model_MobileNetV2.keras"
 CLASSES_PATH = ASSETS_DIR / "classes.json"
 FRONTEND_DIR = BASE_DIR.parent / "frontend" / "dist"
-IMG_SIZE = (224, 224)
 
-# Load model and classes
-print("Loading TensorFlow model...")
-model = tf.keras.models.load_model(str(MODEL_TF_PATH))
-print("Model loaded successfully.")
-
+# Load class names (lightweight, no TF dependency)
 with open(CLASSES_PATH, "r") as f:
     class_names = json.load(f)
 
@@ -46,47 +41,37 @@ app.add_middleware(
 app.mount("/artifacts", StaticFiles(directory=str(ASSETS_DIR)), name="artifacts")
 
 
-def preprocess_image(img: Image.Image) -> np.ndarray:
-    img = img.convert("RGB").resize(IMG_SIZE)
-    img_array = np.array(img, dtype=np.float32)
-    img_array = tf.keras.applications.mobilenet_v2.preprocess_input(img_array)
-    return np.expand_dims(img_array, axis=0)
-
-
-def predict(img: Image.Image) -> dict:
-    processed = preprocess_image(img)
-    start = time.time()
-    predictions = model.predict(processed, verbose=0)
-    inference_time = time.time() - start
-    probs = np.squeeze(predictions)
-    results = sorted(
-        zip(class_names, [float(p) for p in probs]),
-        key=lambda x: x[1],
-        reverse=True,
-    )
-    return {
-        "predictions": [{"class": c, "probability": p} for c, p in results],
-        "inference_time_ms": round(inference_time * 1000, 2),
-    }
+@app.on_event("startup")
+async def load_model():
+    """Load TF model lazily at startup, not at import time."""
+    import tensorflow as tf
+    print("Loading TensorFlow model...")
+    app.state.model = tf.keras.models.load_model(str(MODEL_TF_PATH))
+    print("Model loaded successfully.")
 
 
 @app.post("/api/predict")
 async def predict_upload(file: UploadFile = File(...)):
+    """Server-side inference from uploaded image."""
     contents = await file.read()
     img = Image.open(BytesIO(contents))
-    return JSONResponse(content=predict(img))
+    result = run_prediction(app.state.model, img, class_names)
+    return JSONResponse(content=result)
 
 
 @app.post("/api/predict_url")
 async def predict_url(payload: dict):
+    """Server-side inference from image URL."""
     url = payload.get("url", "")
     response = http_requests.get(url)
     img = Image.open(BytesIO(response.content))
-    return JSONResponse(content=predict(img))
+    result = run_prediction(app.state.model, img, class_names)
+    return JSONResponse(content=result)
 
 
 @app.get("/api/classes")
 async def get_classes():
+    """Return the list of class names."""
     return {"classes": class_names}
 
 
