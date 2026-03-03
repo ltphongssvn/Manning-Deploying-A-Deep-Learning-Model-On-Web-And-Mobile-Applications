@@ -3,8 +3,8 @@
 __pycache__/
 *.pyc
 
-# Large models we don't need in deployment
-backend/assets/model_tf/
+# Intermediate conversion files (not needed for deployment)
+backend/assets/model_tf/saved_model/
 
 # OS files
 .DS_Store
