@@ -1,0 +1,20 @@
+# Virtual environments
+.venv/
+__pycache__/
+*.pyc
+
+# Model binaries (too large for Git)
+*.keras
+*.h5
+*.bin
+backend/assets/model_tf/
+backend/assets/model_tfjs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp

@@ -1,0 +1,17 @@
+[project]
+name = "manning-deploying-a-deep-learning-model-on-web-and-mobile-applications"
+version = "0.1.0"
+description = "Food-101 Image Classifier - Browser and Server-based Inference"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "tensorflow==2.18.0",
+  "fastapi",
+  "uvicorn[standard]",
+  "python-multipart",
+  "aiofiles",
+  "pillow",
+  "numpy",
+  "requests",
+  "jinja2",
+]
