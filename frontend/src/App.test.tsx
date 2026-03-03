@@ -10,6 +10,7 @@
  * - Interfaces: button states, input contracts
  * - Boundaries: disabled states, empty inputs
  * - Zero: initial render with no image selected
+ * - One: single prediction flow
  */
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -17,23 +18,48 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import App from "./App";
 
 // Mock TensorFlow.js — jsdom has no WebGL
+const mockPredict = vi.fn();
+const mockDispose = vi.fn();
+const mockData = vi.fn();
+const mockLoadGraphModel = vi.fn();
+
 vi.mock("@tensorflow/tfjs", () => ({
-  loadGraphModel: vi.fn(),
-  tidy: vi.fn(),
-  browser: { fromPixels: vi.fn() },
+  loadGraphModel: (...args: unknown[]) => mockLoadGraphModel(...args),
+  tidy: (fn: () => unknown) => fn(),
+  browser: {
+    fromPixels: vi.fn(() => ({
+      resizeBilinear: vi.fn().mockReturnThis(),
+      toFloat: vi.fn(() => ({
+        div: vi.fn(() => ({
+          sub: vi.fn(() => ({
+            expandDims: vi.fn(() => ({
+              dispose: mockDispose,
+            })),
+          })),
+        })),
+      })),
+    })),
+  },
 }));
 
 // Mock fetch globally
 const mockFetch = vi.fn();
 globalThis.fetch = mockFetch;
 
+// Mock URL.createObjectURL for file preview
+globalThis.URL.createObjectURL = vi.fn(() => "blob:http://test/fake-blob");
+globalThis.URL.revokeObjectURL = vi.fn();
+
 beforeEach(() => {
   vi.clearAllMocks();
-  // Default: /api/classes returns our 3 food classes
   mockFetch.mockResolvedValue({
     ok: true,
     json: async () => ({ classes: ["apple_pie", "caesar_salad", "falafel"] }),
   });
+  mockLoadGraphModel.mockReset();
+  mockPredict.mockReset();
+  mockData.mockReset();
+  mockDispose.mockReset();
 });
 
 /**
@@ -54,56 +80,42 @@ async function renderApp() {
 // ---------------------------------------------------------------------------
 describe("App renders core UI elements", () => {
   it("displays the main heading", async () => {
-    // Given: the app is rendered and settled
     await renderApp();
-    // Then: heading is visible
     expect(
       screen.getByRole("heading", { name: /classify food image/i })
     ).toBeInTheDocument();
   });
 
   it("displays URL input field", async () => {
-    // Given: the app is rendered and settled
     await renderApp();
-    // Then: URL input is present with placeholder
     expect(screen.getByPlaceholderText(/enter image url/i)).toBeInTheDocument();
   });
 
   it("displays file upload input", async () => {
-    // Given: the app is rendered and settled
     await renderApp();
-    // Then: file input exists
     const fileInput = document.querySelector('input[type="file"]');
     expect(fileInput).toBeInTheDocument();
   });
 
   it("displays Predict button", async () => {
-    // Given: the app is rendered and settled
     await renderApp();
-    // Then: Predict button exists
     expect(screen.getByRole("button", { name: /predict/i })).toBeInTheDocument();
   });
 
   it("displays Clear button", async () => {
-    // Given: the app is rendered and settled
     await renderApp();
-    // Then: Clear button exists
     expect(screen.getByRole("button", { name: /clear/i })).toBeInTheDocument();
   });
 
   it("displays Load Browser Model button", async () => {
-    // Given: the app is rendered and settled
     await renderApp();
-    // Then: Load Browser Model button exists
     expect(
       screen.getByRole("button", { name: /load browser model/i })
     ).toBeInTheDocument();
   });
 
   it("displays Server and Client inference headings", async () => {
-    // Given: the app is rendered and settled
     await renderApp();
-    // Then: both inference section headings exist (use heading role to avoid Notes match)
     expect(
       screen.getByRole("heading", { name: /server side inference/i })
     ).toBeInTheDocument();
@@ -118,26 +130,32 @@ describe("App renders core UI elements", () => {
 // ---------------------------------------------------------------------------
 describe("App initial state", () => {
   it("Predict button is disabled when no image selected", async () => {
-    // Given: app rendered and settled, no image
     await renderApp();
-    // Then: Predict is disabled
     expect(screen.getByRole("button", { name: /predict/i })).toBeDisabled();
   });
 
   it("no predictions displayed initially", async () => {
-    // Given: app rendered and settled
     await renderApp();
-    // Then: no probability values shown
     expect(screen.queryByText(/%/)).not.toBeInTheDocument();
   });
 
   it("fetches classes from API on mount", async () => {
-    // Given/When: app renders
     await renderApp();
-    // Then: fetch was called with /api/classes
     expect(mockFetch).toHaveBeenCalledWith(
       expect.stringContaining("/api/classes")
     );
+  });
+
+  it("uses fallback classes when fetch fails", async () => {
+    // Given: fetch rejects
+    mockFetch.mockRejectedValueOnce(new Error("Network error"));
+    render(<App />);
+    // Then: app still renders (uses fallback classes)
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", { name: /classify food image/i })
+      ).toBeInTheDocument();
+    });
   });
 });
 
@@ -146,34 +164,283 @@ describe("App initial state", () => {
 // ---------------------------------------------------------------------------
 describe("App user interactions", () => {
   it("URL input accepts text", async () => {
-    // Given: app rendered and settled
     const user = userEvent.setup();
     await renderApp();
     const input = screen.getByPlaceholderText(/enter image url/i);
-    // When: user types a URL
     await user.type(input, "https://example.com/food.jpg");
-    // Then: input has the typed value
     expect(input).toHaveValue("https://example.com/food.jpg");
   });
 
   it("Clear button resets URL input", async () => {
-    // Given: app with URL typed
     const user = userEvent.setup();
     await renderApp();
     const input = screen.getByPlaceholderText(/enter image url/i);
     await user.type(input, "https://example.com/food.jpg");
-    // When: Clear is clicked
     await user.click(screen.getByRole("button", { name: /clear/i }));
-    // Then: input is cleared
     expect(input).toHaveValue("");
   });
 
   it("Load Browser Model button shows Not loaded initially", async () => {
-    // Given: app rendered and settled
     await renderApp();
-    // Then: button text includes "Not loaded"
     expect(
       screen.getByRole("button", { name: /load browser model/i })
     ).toHaveTextContent(/not loaded/i);
+  });
+
+  it("file upload sets preview and enables Predict", async () => {
+    const user = userEvent.setup();
+    await renderApp();
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const testFile = new File(["fake-image"], "test.jpg", { type: "image/jpeg" });
+    await user.upload(fileInput, testFile);
+    // Then: preview image appears and Predict is enabled
+    await waitFor(() => {
+      expect(screen.getByAltText("Preview")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /predict/i })).not.toBeDisabled();
+    });
+  });
+
+  it("URL input enables Predict button", async () => {
+    const user = userEvent.setup();
+    await renderApp();
+    const input = screen.getByPlaceholderText(/enter image url/i);
+    await user.type(input, "https://example.com/food.jpg");
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /predict/i })).not.toBeDisabled();
+    });
+  });
+
+  it("Clear button clears file upload and disables Predict", async () => {
+    const user = userEvent.setup();
+    await renderApp();
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const testFile = new File(["fake-image"], "test.jpg", { type: "image/jpeg" });
+    await user.upload(fileInput, testFile);
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /predict/i })).not.toBeDisabled();
+    });
+    await user.click(screen.getByRole("button", { name: /clear/i }));
+    expect(screen.getByRole("button", { name: /predict/i })).toBeDisabled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Server prediction flow
+// ---------------------------------------------------------------------------
+describe("Server prediction", () => {
+  it("sends file upload to /api/predict and displays results", async () => {
+    const user = userEvent.setup();
+    // Given: mock predict returns results
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ classes: ["apple_pie", "caesar_salad", "falafel"] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          predictions: [
+            { class: "falafel", probability: 0.9 },
+            { class: "caesar_salad", probability: 0.08 },
+            { class: "apple_pie", probability: 0.02 },
+          ],
+          inference_time_ms: 150.5,
+        }),
+      });
+    await renderApp();
+    // When: upload file and click Predict
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const testFile = new File(["fake-image"], "test.jpg", { type: "image/jpeg" });
+    await user.upload(fileInput, testFile);
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /predict/i })).not.toBeDisabled();
+    });
+    await user.click(screen.getByRole("button", { name: /predict/i }));
+    // Then: results displayed with class names
+    await waitFor(() => {
+      expect(screen.getByText("falafel")).toBeInTheDocument();
+      expect(screen.getByText(/90\.00%/)).toBeInTheDocument();
+    });
+  });
+
+  it("sends URL to /api/predict_url and displays results", async () => {
+    const user = userEvent.setup();
+    // Given: mock returns prediction results
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ classes: ["apple_pie", "caesar_salad", "falafel"] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          predictions: [
+            { class: "caesar_salad", probability: 0.85 },
+            { class: "falafel", probability: 0.1 },
+            { class: "apple_pie", probability: 0.05 },
+          ],
+          inference_time_ms: 200.0,
+        }),
+      });
+    await renderApp();
+    // When: enter URL and click Predict
+    const input = screen.getByPlaceholderText(/enter image url/i);
+    await user.type(input, "https://example.com/food.jpg");
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /predict/i })).not.toBeDisabled();
+    });
+    await user.click(screen.getByRole("button", { name: /predict/i }));
+    // Then: results displayed with class names
+    await waitFor(() => {
+      expect(screen.getByText("caesar_salad")).toBeInTheDocument();
+      expect(screen.getByText(/85\.00%/)).toBeInTheDocument();
+    });
+  });
+
+  it("handles server prediction error gracefully", async () => {
+    const user = userEvent.setup();
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    // Given: predict fetch rejects
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ classes: ["apple_pie", "caesar_salad", "falafel"] }),
+      })
+      .mockRejectedValueOnce(new Error("Server error"));
+    await renderApp();
+    // When: upload and predict
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const testFile = new File(["fake-image"], "test.jpg", { type: "image/jpeg" });
+    await user.upload(fileInput, testFile);
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /predict/i })).not.toBeDisabled();
+    });
+    await user.click(screen.getByRole("button", { name: /predict/i }));
+    // Then: error logged, no crash
+    await waitFor(() => {
+      expect(consoleSpy).toHaveBeenCalled();
+    });
+    consoleSpy.mockRestore();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Browser model loading
+// ---------------------------------------------------------------------------
+describe("Browser model loading", () => {
+  it("loads TF.js model when Load Browser Model clicked", async () => {
+    const user = userEvent.setup();
+    const mockModel = { predict: mockPredict };
+    mockLoadGraphModel.mockResolvedValueOnce(mockModel);
+    await renderApp();
+    // When: click Load Browser Model
+    await user.click(screen.getByRole("button", { name: /load browser model/i }));
+    // Then: model loaded, status shows Ready
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /load browser model/i })
+      ).toHaveTextContent(/ready/i);
+    });
+  });
+
+  it("shows Failed to load on model load error", async () => {
+    const user = userEvent.setup();
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    mockLoadGraphModel.mockRejectedValueOnce(new Error("Load failed"));
+    await renderApp();
+    // When: click Load Browser Model (will fail)
+    await user.click(screen.getByRole("button", { name: /load browser model/i }));
+    // Then: status shows Failed
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /load browser model/i })
+      ).toHaveTextContent(/failed to load/i);
+    });
+    consoleSpy.mockRestore();
+  });
+
+  it("disables Load Browser Model button after model loaded", async () => {
+    const user = userEvent.setup();
+    const mockModel = { predict: mockPredict };
+    mockLoadGraphModel.mockResolvedValueOnce(mockModel);
+    await renderApp();
+    await user.click(screen.getByRole("button", { name: /load browser model/i }));
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /load browser model/i })
+      ).toBeDisabled();
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ResultTable rendering
+// ---------------------------------------------------------------------------
+describe("ResultTable displays predictions", () => {
+  it("shows class names and probabilities in table", async () => {
+    const user = userEvent.setup();
+    // Given: server returns predictions
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ classes: ["apple_pie", "caesar_salad", "falafel"] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          predictions: [
+            { class: "falafel", probability: 0.9 },
+            { class: "caesar_salad", probability: 0.08 },
+            { class: "apple_pie", probability: 0.02 },
+          ],
+          inference_time_ms: 100,
+        }),
+      });
+    await renderApp();
+    // When: upload and predict
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const testFile = new File(["fake-image"], "test.jpg", { type: "image/jpeg" });
+    await user.upload(fileInput, testFile);
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /predict/i })).not.toBeDisabled();
+    });
+    await user.click(screen.getByRole("button", { name: /predict/i }));
+    // Then: class names appear in results
+    await waitFor(() => {
+      expect(screen.getByText("falafel")).toBeInTheDocument();
+      expect(screen.getByText("caesar_salad")).toBeInTheDocument();
+      expect(screen.getByText("apple_pie")).toBeInTheDocument();
+    });
+  });
+
+  it("shows inference time in results", async () => {
+    const user = userEvent.setup();
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ classes: ["apple_pie", "caesar_salad", "falafel"] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          predictions: [
+            { class: "falafel", probability: 0.9 },
+            { class: "caesar_salad", probability: 0.08 },
+            { class: "apple_pie", probability: 0.02 },
+          ],
+          inference_time_ms: 250.75,
+        }),
+      });
+    await renderApp();
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const testFile = new File(["fake-image"], "test.jpg", { type: "image/jpeg" });
+    await user.upload(fileInput, testFile);
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /predict/i })).not.toBeDisabled();
+    });
+    await user.click(screen.getByRole("button", { name: /predict/i }));
+    await waitFor(() => {
+      expect(screen.getByText(/250\.75/)).toBeInTheDocument();
+    });
   });
 });
