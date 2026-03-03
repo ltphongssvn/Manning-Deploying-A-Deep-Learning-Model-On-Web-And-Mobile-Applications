@@ -14,6 +14,7 @@ Tests follow Given/When/Then structure and ZOMBIES mnemonic:
 - Simple: happy path
 """
 import io
+from unittest.mock import patch, MagicMock
 import numpy as np
 import pytest
 from PIL import Image
@@ -34,7 +35,6 @@ def inject_fake_model():
     """Inject FakeModel into app.state before every test."""
     app.state.model = FakeModel()
     yield
-    # Cleanup: remove model from state
     if hasattr(app.state, "model"):
         del app.state.model
 
@@ -186,3 +186,88 @@ class TestPredictUpload:
             response = await client.post("/api/predict")
         # Then: 422 Unprocessable Entity (FastAPI validation error)
         assert response.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# POST /api/predict_url: Simple, Zero, Boundaries
+# ---------------------------------------------------------------------------
+class TestPredictUrl:
+    """Tests for the /api/predict_url URL-based inference endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_valid_url_returns_200(self):
+        # Given: a mock HTTP response with valid image bytes
+        image_bytes = make_test_image_bytes("JPEG")
+        mock_response = MagicMock()
+        mock_response.content = image_bytes
+        with patch("backend.app.http_requests.get", return_value=mock_response):
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client:
+                # When: POST with image URL
+                response = await client.post(
+                    "/api/predict_url",
+                    json={"url": "https://example.com/food.jpg"},
+                )
+        # Then: 200 OK
+        assert response.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_valid_url_returns_predictions(self):
+        # Given: a mock HTTP response with valid image
+        image_bytes = make_test_image_bytes("JPEG")
+        mock_response = MagicMock()
+        mock_response.content = image_bytes
+        with patch("backend.app.http_requests.get", return_value=mock_response):
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client:
+                # When: POST with URL
+                response = await client.post(
+                    "/api/predict_url",
+                    json={"url": "https://example.com/food.jpg"},
+                )
+        # Then: response has predictions and inference time
+        data = response.json()
+        assert "predictions" in data
+        assert "inference_time_ms" in data
+        assert len(data["predictions"]) == 3
+
+    @pytest.mark.asyncio
+    async def test_url_predictions_sorted_descending(self):
+        # Given: a mock HTTP response
+        image_bytes = make_test_image_bytes("JPEG")
+        mock_response = MagicMock()
+        mock_response.content = image_bytes
+        with patch("backend.app.http_requests.get", return_value=mock_response):
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client:
+                # When: POST with URL
+                response = await client.post(
+                    "/api/predict_url",
+                    json={"url": "https://example.com/food.jpg"},
+                )
+        # Then: sorted descending
+        data = response.json()
+        probs = [p["probability"] for p in data["predictions"]]
+        assert probs == sorted(probs, reverse=True)
+
+    @pytest.mark.asyncio
+    async def test_url_top_prediction_matches_fake_model(self):
+        # Given: FakeModel returns [0.1, 0.7, 0.2] -> caesar_salad highest
+        image_bytes = make_test_image_bytes("JPEG")
+        mock_response = MagicMock()
+        mock_response.content = image_bytes
+        with patch("backend.app.http_requests.get", return_value=mock_response):
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client:
+                # When: POST with URL
+                response = await client.post(
+                    "/api/predict_url",
+                    json={"url": "https://example.com/food.jpg"},
+                )
+        # Then: caesar_salad is top
+        data = response.json()
+        assert data["predictions"][0]["class"] == "caesar_salad"
