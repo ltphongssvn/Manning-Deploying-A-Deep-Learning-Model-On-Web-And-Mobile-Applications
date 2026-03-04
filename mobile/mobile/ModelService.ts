@@ -2,7 +2,6 @@
 // Core inference logic: loads TF.js model from bundled assets, classifies images
 import * as tf from "@tensorflow/tfjs";
 import { bundleResourceIO, decodeJpeg } from "@tensorflow/tfjs-react-native";
-import * as FileSystem from "expo-file-system/legacy";
 import { APP_CONFIG } from "./config";
 
 const modelJSON = require("./assets/model_tfjs/model.json");
@@ -47,11 +46,10 @@ export async function classifyImage(
 ): Promise<ClassificationResult> {
   if (!model) throw new Error("Model not loaded");
 
-  const imgB64 = await FileSystem.readAsStringAsync(imageUri, {
-    encoding: "base64",
-  });
-  const imgBuffer = tf.util.encodeString(imgB64, "base64").buffer;
-  const rawImageTensor = decodeJpeg(new Uint8Array(imgBuffer));
+  // Read image as raw bytes using fetch (avoids deprecated expo-file-system)
+  const response = await fetch(imageUri);
+  const arrayBuffer = await response.arrayBuffer();
+  const rawImageTensor = decodeJpeg(new Uint8Array(arrayBuffer));
 
   const start = performance.now();
 
