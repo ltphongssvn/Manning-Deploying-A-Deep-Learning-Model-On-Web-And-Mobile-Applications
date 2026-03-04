@@ -48,7 +48,7 @@ export async function classifyImage(
   if (!model) throw new Error("Model not loaded");
 
   const imgB64 = await FileSystem.readAsStringAsync(imageUri, {
-    encoding: FileSystem.EncodingType.Base64,
+    encoding: "base64",
   });
   const imgBuffer = tf.util.encodeString(imgB64, "base64").buffer;
   const rawImageTensor = decodeJpeg(new Uint8Array(imgBuffer));
