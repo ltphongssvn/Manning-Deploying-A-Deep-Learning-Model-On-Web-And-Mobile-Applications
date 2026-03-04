@@ -2,7 +2,6 @@
 // Core inference logic: loads TF.js model from bundled assets, classifies images
 import * as tf from "@tensorflow/tfjs";
 import { bundleResourceIO, decodeJpeg } from "@tensorflow/tfjs-react-native";
-import * as FileSystem from "expo-file-system";
 import { APP_CONFIG } from "./config";
 
 const modelJSON = require("./assets/model_tfjs/model.json");
@@ -28,7 +27,6 @@ export async function initializeTF(): Promise<void> {
 export async function loadModel(): Promise<void> {
   if (model) return;
   model = await tf.loadGraphModel(bundleResourceIO(modelJSON, modelWeights));
-  // Warm up with a dummy prediction
   const warmup = tf.zeros([1, APP_CONFIG.imageSize, APP_CONFIG.imageSize, 3]);
   model.predict(warmup);
   warmup.dispose();
@@ -47,11 +45,9 @@ export async function classifyImage(
 ): Promise<ClassificationResult> {
   if (!model) throw new Error("Model not loaded");
 
-  const imgB64 = await FileSystem.readAsStringAsync(imageUri, {
-    encoding: "base64",
-  });
-  const imgBuffer = tf.util.encodeString(imgB64, "base64").buffer;
-  const rawImageTensor = decodeJpeg(new Uint8Array(imgBuffer));
+  const response = await fetch(imageUri);
+  const arrayBuffer = await response.arrayBuffer();
+  const rawImageTensor = decodeJpeg(new Uint8Array(arrayBuffer));
 
   const start = performance.now();
 
