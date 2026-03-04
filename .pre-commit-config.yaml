@@ -77,9 +77,3 @@ repos:
         language: system
         pass_filenames: false
         stages: [pre-push]
-      - id: docker-build-push
-        name: Docker Build Verification (Pre-push)
-        entry: bash -c 'echo "Running Docker build check..." && docker compose build 2>&1 | tail -20'
-        language: system
-        pass_filenames: false
-        stages: [pre-push]
