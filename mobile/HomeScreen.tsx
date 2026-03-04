@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   ScrollView,
+  Alert,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { initializeTF, loadModel, isModelReady, classifyImage } from "./ModelService";
@@ -20,6 +21,7 @@ export default function HomeScreen() {
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [result, setResult] = useState<ClassificationResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -37,33 +39,62 @@ export default function HomeScreen() {
   }, []);
 
   const pickImage = async (useCamera: boolean) => {
+    setError(null);
+
+    if (useCamera) {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          "Permission Required",
+          "Camera permission is needed to take photos."
+        );
+        return;
+      }
+    } else {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          "Permission Required",
+          "Photo library permission is needed to select images."
+        );
+        return;
+      }
+    }
+
     const pickerFn = useCamera
       ? ImagePicker.launchCameraAsync
       : ImagePicker.launchImageLibraryAsync;
 
-    const pickerResult = await pickerFn({
-      mediaTypes: ["images"],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
+    try {
+      const pickerResult = await pickerFn({
+        mediaTypes: ["images"],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
 
-    if (!pickerResult.canceled && pickerResult.assets[0]) {
-      const uri = pickerResult.assets[0].uri;
-      setImageUri(uri);
-      setResult(null);
-      await runPrediction(uri);
+      if (!pickerResult.canceled && pickerResult.assets[0]) {
+        const uri = pickerResult.assets[0].uri;
+        setImageUri(uri);
+        setResult(null);
+        await runPrediction(uri);
+      }
+    } catch (e) {
+      console.error("Image picker error:", e);
+      setError(`Failed to pick image: ${e}`);
     }
   };
 
   const runPrediction = async (uri: string) => {
     if (!isModelReady()) return;
     setLoading(true);
+    setError(null);
     try {
       const classificationResult = await classifyImage(uri);
       setResult(classificationResult);
     } catch (e) {
       console.error("Prediction error:", e);
+      setError(`Prediction failed: ${e}`);
     }
     setLoading(false);
   };
@@ -95,6 +126,12 @@ export default function HomeScreen() {
       )}
 
       {loading && <ActivityIndicator size="large" color="#4CAF50" />}
+
+      {error && (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      )}
 
       {result && (
         <View style={styles.resultContainer}>
@@ -160,6 +197,17 @@ const styles = StyleSheet.create({
     height: 300,
     borderRadius: 12,
     marginBottom: 20,
+  },
+  errorContainer: {
+    backgroundColor: "#4a1a1a",
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+    width: "100%",
+  },
+  errorText: {
+    color: "#ff6b6b",
+    fontSize: 14,
   },
   resultContainer: {
     width: "100%",
