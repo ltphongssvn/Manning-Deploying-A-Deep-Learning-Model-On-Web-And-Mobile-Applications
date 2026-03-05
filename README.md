@@ -10,7 +10,7 @@ A full-stack application that classifies food images using a MobileNetV2 deep le
 
 ## Overview
 
-This project demonstrates an end-to-end machine learning deployment pipeline — from model training on GPU infrastructure (Harvard HPC, NVIDIA A10G) to production deployment on Railway (web) and Expo EAS (mobile). The codebase follows Test-Driven Development (TDD) with 80% per-file coverage enforcement, comprehensive security practices via pre-commit hooks, and GitFlow branching for team collaboration.
+This project demonstrates an end-to-end machine learning deployment pipeline — from model training on GPU infrastructure (HPC, NVIDIA A10G) to production deployment on Railway (web) and Expo EAS (mobile). The codebase follows Test-Driven Development (TDD) with 80% per-file coverage enforcement, comprehensive security practices via pre-commit hooks, and GitFlow branching for team collaboration.
 
 ### Supported Food Classes
 
@@ -44,7 +44,7 @@ This project demonstrates an end-to-end machine learning deployment pipeline —
 
 ## Model Performance
 
-Three models were evaluated using transfer learning on a Food-101 subset (3,000 images, 3 classes) on Harvard HPC (NVIDIA A10G GPU, TensorFlow 2.18):
+Three models were evaluated using transfer learning on a Food-101 subset (3,000 images, 3 classes) on HPC (NVIDIA A10G GPU, TensorFlow 2.18):
 
 | Model | Val Accuracy | Training Time | Model Size | Deployed |
 |---|---|---|---|---|
