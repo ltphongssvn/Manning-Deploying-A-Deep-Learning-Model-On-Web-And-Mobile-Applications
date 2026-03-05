@@ -20,7 +20,7 @@ This project demonstrates an end-to-end machine learning deployment pipeline —
 
 ### Install on Android
 
-1. Open this link on your Android phone: [Food Classifier Android](https://expo.dev/accounts/ltphongssvn/projects/mobile/builds/139fbbd1-abd0-4494-a427-cdc02b3c999c)
+1. Open this link on your Android phone: [Food Classifier Android](https://expo.dev/accounts/ltphongssvn/projects/mobile/builds/c7b2becc-d281-4f37-87c0-d02e9f097158)
 2. Tap **Install** to download the APK
 3. If prompted "Install from unknown sources" → tap **Allow**
 4. Open **mobile** from your app drawer
