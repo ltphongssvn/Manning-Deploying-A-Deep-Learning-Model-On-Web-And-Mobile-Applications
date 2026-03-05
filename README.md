@@ -18,6 +18,50 @@ This project demonstrates an end-to-end machine learning deployment pipeline —
 - Caesar Salad
 - Falafel
 
+## Mobile App User Guide
+
+### Install on Android
+
+1. Open this link on your phone: [Food Classifier](https://expo.dev/accounts/ltphongssvn/projects/mobile/builds/655d8043-9788-4d70-a5e5-a84ccc286245)
+2. Tap **Install** to download
+3. If prompted "Install from unknown sources" → tap **Allow**
+4. Open **mobile** from your app drawer
+
+### Install on iOS
+
+1. Open the build link on your iPhone (link provided separately)
+2. Tap **Install**
+3. Go to **Settings → General → VPN & Device Management** → tap the developer profile → **Trust**
+4. Open **mobile** from your home screen
+
+### How to Use
+
+1. **Wait for the green checkmark** — when you see "Model Status: Ready ✅", the app is ready
+2. **📷 Camera** — tap to take a photo of food (allow camera access when asked)
+3. **🖼️ Gallery** — tap to pick a photo from your library (allow photo access when asked)
+4. The app shows what food it thinks is in the photo, with a confidence percentage for each class
+5. Pick another image anytime — the previous result updates automatically
+
+### Supported Foods
+
+The app recognizes three types of food: **Apple Pie**, **Caesar Salad**, and **Falafel**.
+
+### Good to Know
+
+- No internet connection needed — the app works completely offline
+- Inference takes about 100-300 ms on most phones
+- Square, well-lit photos of a single dish give the best results
+- The **About** tab at the bottom has more details about the model
+
+### Troubleshooting
+
+| Problem | What to Do |
+|---|---|
+| App stuck on "Loading model..." | Close the app completely and reopen it |
+| Camera button not working | Go to Settings → Apps → mobile → Permissions → enable Camera |
+| Can't select photos | Go to Settings → Apps → mobile → Permissions → enable Photos |
+| App won't install (iOS) | Make sure you trusted the developer profile in Settings (see step 3 above) |
+
 ## Architecture
 ```
 ┌──────────────────────────────────────────────────────────────┐
