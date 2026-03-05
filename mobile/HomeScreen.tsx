@@ -8,8 +8,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  ScrollView,
   Alert,
+  SafeAreaView,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { initializeTF, loadModel, isModelReady, classifyImage } from "./ModelService";
@@ -44,19 +44,13 @@ export default function HomeScreen() {
     if (useCamera) {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== "granted") {
-        Alert.alert(
-          "Permission Required",
-          "Camera permission is needed to take photos."
-        );
+        Alert.alert("Permission Required", "Camera permission is needed.");
         return;
       }
     } else {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== "granted") {
-        Alert.alert(
-          "Permission Required",
-          "Photo library permission is needed to select images."
-        );
+        Alert.alert("Permission Required", "Photo library permission is needed.");
         return;
       }
     }
@@ -100,45 +94,49 @@ export default function HomeScreen() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>{APP_CONFIG.title}</Text>
-      <Text style={styles.status}>Model Status: {modelStatus}</Text>
-
-      <View style={styles.buttonRow}>
-        <TouchableOpacity
-          style={[styles.button, !isModelReady() && styles.buttonDisabled]}
-          onPress={() => pickImage(true)}
-          disabled={!isModelReady()}
-        >
-          <Text style={styles.buttonText}>📷 Camera</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.button, !isModelReady() && styles.buttonDisabled]}
-          onPress={() => pickImage(false)}
-          disabled={!isModelReady()}
-        >
-          <Text style={styles.buttonText}>🖼️ Gallery</Text>
-        </TouchableOpacity>
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>{APP_CONFIG.title}</Text>
+        <Text style={styles.status}>Model Status: {modelStatus}</Text>
+        <View style={styles.buttonRow}>
+          <TouchableOpacity
+            style={[styles.button, !isModelReady() && styles.buttonDisabled]}
+            onPress={() => pickImage(true)}
+            disabled={!isModelReady()}
+          >
+            <Text style={styles.buttonText}>📷 Camera</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.button, !isModelReady() && styles.buttonDisabled]}
+            onPress={() => pickImage(false)}
+            disabled={!isModelReady()}
+          >
+            <Text style={styles.buttonText}>🖼️ Gallery</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {imageUri && (
-        <Image source={{ uri: imageUri }} style={styles.preview} />
-      )}
-
-      {loading && <ActivityIndicator size="large" color="#4CAF50" />}
+      <View style={styles.imageArea}>
+        {imageUri ? (
+          <Image source={{ uri: imageUri }} style={styles.preview} />
+        ) : (
+          <Text style={styles.placeholder}>Select an image to classify</Text>
+        )}
+        {loading && <ActivityIndicator size="large" color="#4CAF50" style={styles.loader} />}
+      </View>
 
       {error && (
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
+          <Text style={styles.errorText} numberOfLines={2}>{error}</Text>
         </View>
       )}
 
       {result && (
         <View style={styles.resultContainer}>
-          <Text style={styles.resultTitle}>Predictions</Text>
-          <Text style={styles.inferenceTime}>
-            Inference: {result.inference_time_ms} ms
-          </Text>
+          <View style={styles.resultHeader}>
+            <Text style={styles.resultTitle}>Predictions</Text>
+            <Text style={styles.inferenceTime}>{result.inference_time_ms} ms</Text>
+          </View>
           {result.predictions.map((p) => (
             <View key={p.class} style={styles.predictionRow}>
               <Text style={styles.className}>{p.class}</Text>
@@ -149,38 +147,39 @@ export default function HomeScreen() {
           ))}
         </View>
       )}
-    </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flexGrow: 1,
-    alignItems: "center",
-    padding: 20,
+    flex: 1,
     backgroundColor: "#1a1a1a",
+    paddingHorizontal: 16,
+  },
+  header: {
+    alignItems: "center",
+    paddingTop: 8,
   },
   title: {
-    fontSize: 32,
+    fontSize: 26,
     fontWeight: "bold",
     color: "#ffffff",
-    marginTop: 40,
-    marginBottom: 8,
   },
   status: {
-    fontSize: 16,
+    fontSize: 13,
     color: "#aaaaaa",
-    marginBottom: 20,
+    marginVertical: 4,
   },
   buttonRow: {
     flexDirection: "row",
-    gap: 16,
-    marginBottom: 20,
+    gap: 12,
+    marginVertical: 8,
   },
   button: {
     backgroundColor: "#333333",
-    paddingVertical: 14,
-    paddingHorizontal: 24,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
     borderRadius: 50,
     borderWidth: 2,
     borderColor: "#555555",
@@ -189,57 +188,70 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   buttonText: {
-    fontSize: 18,
+    fontSize: 15,
     color: "#ffffff",
   },
+  imageArea: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   preview: {
-    width: 300,
-    height: 300,
+    width: "85%",
+    aspectRatio: 1,
     borderRadius: 12,
-    marginBottom: 20,
+  },
+  placeholder: {
+    color: "#555555",
+    fontSize: 16,
+  },
+  loader: {
+    position: "absolute",
   },
   errorContainer: {
     backgroundColor: "#4a1a1a",
     borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-    width: "100%",
+    padding: 8,
+    marginBottom: 4,
   },
   errorText: {
     color: "#ff6b6b",
-    fontSize: 14,
+    fontSize: 12,
   },
   resultContainer: {
-    width: "100%",
     backgroundColor: "#2a2a2a",
     borderRadius: 12,
-    padding: 16,
-    marginTop: 10,
-  },
-  resultTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#ffffff",
+    padding: 12,
     marginBottom: 8,
   },
+  resultHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  resultTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#ffffff",
+  },
   inferenceTime: {
-    fontSize: 14,
+    fontSize: 12,
     color: "#888888",
-    marginBottom: 12,
   },
   predictionRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingVertical: 8,
+    paddingVertical: 5,
     borderBottomWidth: 1,
     borderBottomColor: "#333333",
   },
   className: {
-    fontSize: 16,
+    fontSize: 14,
     color: "#ffffff",
   },
   probability: {
-    fontSize: 16,
+    fontSize: 14,
     color: "#4CAF50",
     fontWeight: "bold",
   },
