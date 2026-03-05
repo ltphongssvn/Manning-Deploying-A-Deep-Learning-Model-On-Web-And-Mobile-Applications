@@ -4,8 +4,6 @@ A full-stack application that classifies food images using a MobileNetV2 deep le
 
 **Live Web Demo:** [https://welcoming-charm-production-52ee.up.railway.app](https://welcoming-charm-production-52ee.up.railway.app)
 
-**Android Dev Build:** [https://expo.dev/accounts/ltphongssvn/projects/mobile](https://expo.dev/accounts/ltphongssvn/projects/mobile)
-
 **Test Dataset:** [https://drive.google.com/drive/folders/1f3PVWNZZyeZhemEXOS1X6u2_5evGoDtJ?usp=sharing](https://drive.google.com/drive/folders/1f3PVWNZZyeZhemEXOS1X6u2_5evGoDtJ?usp=sharing)
 
 ## Overview
@@ -22,45 +20,47 @@ This project demonstrates an end-to-end machine learning deployment pipeline —
 
 ### Install on Android
 
-1. Open this link on your phone: [Food Classifier](https://expo.dev/accounts/ltphongssvn/projects/mobile/builds/655d8043-9788-4d70-a5e5-a84ccc286245)
-2. Tap **Install** to download
+1. Open this link on your Android phone: [Food Classifier Android](https://expo.dev/accounts/ltphongssvn/projects/mobile/builds/139fbbd1-abd0-4494-a427-cdc02b3c999c)
+2. Tap **Install** to download the APK
 3. If prompted "Install from unknown sources" → tap **Allow**
 4. Open **mobile** from your app drawer
 
 ### Install on iOS
 
-1. Open the build link on your iPhone (link provided separately)
+1. Open this link on your iPhone in Safari: [Food Classifier iOS](https://expo.dev/accounts/ltphongssvn/projects/mobile/builds/57b86ebf-13a9-4f56-8b57-5701bb3f225c)
 2. Tap **Install**
-3. Go to **Settings → General → VPN & Device Management** → tap the developer profile → **Trust**
-4. Open **mobile** from your home screen
+3. Enable Developer Mode: **Settings → Privacy & Security → Developer Mode** → toggle on → restart iPhone → confirm **Turn On**
+4. Trust the developer profile: **Settings → General → VPN & Device Management** → tap the developer profile → **Trust**
+5. Open **mobile** from your home screen
 
 ### How to Use
 
-1. **Wait for the green checkmark** — when you see "Model Status: Ready ✅", the app is ready
+1. **Wait for the green checkmark** — when "Model Status: Ready ✅" appears, the app is ready
 2. **📷 Camera** — tap to take a photo of food (allow camera access when asked)
 3. **🖼️ Gallery** — tap to pick a photo from your library (allow photo access when asked)
-4. The app shows what food it thinks is in the photo, with a confidence percentage for each class
+4. The app shows what food it detected, with a confidence percentage for each class
 5. Pick another image anytime — the previous result updates automatically
+6. Tap the **About** tab at the bottom for model and app details
 
 ### Supported Foods
 
-The app recognizes three types of food: **Apple Pie**, **Caesar Salad**, and **Falafel**.
+The app recognizes three types of food: **Apple Pie**, **Caesar Salad**, and **Falafel**. Square, well-lit photos of a single dish give the best results.
 
 ### Good to Know
 
 - No internet connection needed — the app works completely offline
-- Inference takes about 100-300 ms on most phones
-- Square, well-lit photos of a single dish give the best results
-- The **About** tab at the bottom has more details about the model
+- Inference takes about 100–300 ms on most phones
+- The model is 6.8 MB and loads in 2–5 seconds on first launch
 
 ### Troubleshooting
 
 | Problem | What to Do |
 |---|---|
 | App stuck on "Loading model..." | Close the app completely and reopen it |
-| Camera button not working | Go to Settings → Apps → mobile → Permissions → enable Camera |
-| Can't select photos | Go to Settings → Apps → mobile → Permissions → enable Photos |
-| App won't install (iOS) | Make sure you trusted the developer profile in Settings (see step 3 above) |
+| Camera button not working | Enable camera permission in your phone's Settings |
+| Can't select photos | Enable photo library permission in your phone's Settings |
+| App won't open (iOS) | Enable Developer Mode and trust the developer profile (see install steps above) |
+| App won't install (Android) | Allow "Install from unknown sources" in Settings |
 
 ## Architecture
 ```
