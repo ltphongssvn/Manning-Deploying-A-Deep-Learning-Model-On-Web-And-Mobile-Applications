@@ -94,7 +94,7 @@ export default function HomeScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["bottom"]}>
       <View style={styles.header}>
         <Text style={styles.title}>{APP_CONFIG.title}</Text>
         <Text style={styles.status}>Model Status: {modelStatus}</Text>
@@ -118,7 +118,7 @@ export default function HomeScreen() {
 
       <View style={styles.imageArea}>
         {imageUri ? (
-          <Image source={{ uri: imageUri }} style={styles.preview} />
+          <Image source={{ uri: imageUri }} style={styles.preview} resizeMode="contain" />
         ) : (
           <Text style={styles.placeholder}>Select an image to classify</Text>
         )}
@@ -162,24 +162,24 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   title: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: "bold",
     color: "#ffffff",
   },
   status: {
-    fontSize: 13,
+    fontSize: 12,
     color: "#aaaaaa",
-    marginVertical: 4,
+    marginVertical: 2,
   },
   buttonRow: {
     flexDirection: "row",
     gap: 12,
-    marginVertical: 8,
+    marginVertical: 6,
   },
   button: {
     backgroundColor: "#333333",
-    paddingVertical: 10,
-    paddingHorizontal: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 18,
     borderRadius: 50,
     borderWidth: 2,
     borderColor: "#555555",
@@ -188,17 +188,19 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   buttonText: {
-    fontSize: 15,
+    fontSize: 14,
     color: "#ffffff",
   },
   imageArea: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    marginVertical: 4,
+    overflow: "hidden",
   },
   preview: {
-    width: "85%",
-    aspectRatio: 1,
+    width: "90%",
+    height: "100%",
     borderRadius: 12,
   },
   placeholder: {
@@ -221,37 +223,37 @@ const styles = StyleSheet.create({
   resultContainer: {
     backgroundColor: "#2a2a2a",
     borderRadius: 12,
-    padding: 12,
-    marginBottom: 8,
+    padding: 10,
+    marginBottom: 4,
   },
   resultHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 6,
+    marginBottom: 4,
   },
   resultTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "bold",
     color: "#ffffff",
   },
   inferenceTime: {
-    fontSize: 12,
+    fontSize: 11,
     color: "#888888",
   },
   predictionRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingVertical: 5,
+    paddingVertical: 4,
     borderBottomWidth: 1,
     borderBottomColor: "#333333",
   },
   className: {
-    fontSize: 14,
+    fontSize: 13,
     color: "#ffffff",
   },
   probability: {
-    fontSize: 14,
+    fontSize: 13,
     color: "#4CAF50",
     fontWeight: "bold",
   },
