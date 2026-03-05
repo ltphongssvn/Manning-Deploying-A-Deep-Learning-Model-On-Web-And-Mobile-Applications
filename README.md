@@ -22,23 +22,23 @@ This project demonstrates an end-to-end machine learning deployment pipeline —
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │                   Mobile App (Milestone 3)                   │
-│         React Native + Expo SDK 54 + TF.js (6.8MB)          │
+│         React Native + Expo SDK 54 + TF.js (6.8MB)           │
 │     On-device inference · Camera/Gallery · No internet       │
 │        Android APK (EAS Build) · iOS (pending)               │
 ├──────────────────────────────────────────────────────────────┤
-│                  Web Frontend (Milestone 2)                   │
+│                  Web Frontend (Milestone 2)                  │
 │              React 19 + TypeScript + Vite 7                  │
 │         Browser-side TF.js inference (6.8MB model)           │
 ├──────────────────────────────────────────────────────────────┤
-│                     FastAPI Backend                           │
-│        /api/predict  /api/predict_url  /api/classes           │
-│         Server-side inference (24MB Keras model)              │
+│                     FastAPI Backend                          │
+│        /api/predict  /api/predict_url  /api/classes          │
+│         Server-side inference (24MB Keras model)             │
 ├──────────────────────────────────────────────────────────────┤
-│                  Docker (Multi-stage)                         │
+│                  Docker (Multi-stage)                        │
 │          Node 22 (build) → Python 3.11 (runtime)             │
 ├──────────────────────────────────────────────────────────────┤
-│                Railway (Production)                           │
-│            Automatic PORT binding via env var                 │
+│                Railway (Production)                          │
+│            Automatic PORT binding via env var                │
 └──────────────────────────────────────────────────────────────┘
 ```
 
